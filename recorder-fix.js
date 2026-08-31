@@ -7,15 +7,19 @@
   const nativeRequestData=proto.requestData;
   const isiOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 
-  proto.start=function(){
-    // En iPhone evitamos timeslice: Safari puede generar MP4 fragmentados
-    // que terminan perdiendo la pista de audio en grabaciones más largas.
-    return nativeStart.call(this);
+  proto.start=function(timeslice){
+    if(isiOS){
+      // Safari iOS puede congelar la pista de vídeo si acumula toda la grabación
+      // en memoria. 5 s reduce presión sin trocear en exceso el MP4.
+      return nativeStart.call(this,5000);
+    }
+    return nativeStart.call(this,timeslice);
   };
 
   if(isiOS && nativeRequestData){
     proto.requestData=function(){
-      // Evitamos forzar fragmentos MP4 intermedios al pausar.
+      // Evitamos fragmentos manuales al pausar; dejamos que el timeslice haga
+      // el vaciado periódico para mantener audio y vídeo sincronizados.
       if(this.state==='recording' && /mp4/i.test(this.mimeType||'')) return;
       return nativeRequestData.call(this);
     };
