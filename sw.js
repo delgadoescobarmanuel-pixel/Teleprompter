@@ -1,7 +1,7 @@
-const CACHE='teleprompter-recorder-v5';
+const CACHE='teleprompter-recorder-v6';
 self.addEventListener('install',e=>{
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./cloud.js','./recorder-fix.js','./hold-scroll.js'])).catch(()=>{}));
+  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./cloud.js','./recorder-fix.js','./hold-scroll.js','./fresh-stream.js'])).catch(()=>{}));
 });
 self.addEventListener('activate',e=>{
   e.waitUntil(Promise.all([
@@ -15,6 +15,7 @@ self.addEventListener('fetch',e=>{
       let html=await r.text();
       if(!html.includes('recorder-fix.js')) html=html.replace('</body>','<script src="./recorder-fix.js?v=5"></script></body>');
       if(!html.includes('hold-scroll.js')) html=html.replace('</body>','<script src="./hold-scroll.js?v=1"></script></body>');
+      if(!html.includes('fresh-stream.js')) html=html.replace('</body>','<script src="./fresh-stream.js?v=1"></script></body>');
       if(!html.includes('cloud.js')) html=html.replace('</body>','<script src="./cloud.js?v=1"></script></body>');
       return new Response(html,{status:r.status,statusText:r.statusText,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
     }).catch(()=>caches.match(e.request)));
