@@ -1,4 +1,4 @@
-const CACHE='teleprompter-recorder-v2';
+const CACHE='teleprompter-recorder-v3';
 self.addEventListener('install',e=>{
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./cloud.js','./recorder-fix.js'])).catch(()=>{}));
@@ -13,11 +13,11 @@ self.addEventListener('fetch',e=>{
   if(e.request.mode==='navigate'){
     e.respondWith(fetch(e.request,{cache:'no-store'}).then(async r=>{
       let html=await r.text();
-      if(!html.includes('recorder-fix.js')) html=html.replace('</body>','<script src="./recorder-fix.js?v=2"></script></body>');
+      if(!html.includes('recorder-fix.js')) html=html.replace('</body>','<script src="./recorder-fix.js?v=3"></script></body>');
       if(!html.includes('cloud.js')) html=html.replace('</body>','<script src="./cloud.js?v=1"></script></body>');
       return new Response(html,{status:r.status,statusText:r.statusText,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
     }).catch(()=>caches.match(e.request)));
     return;
   }
-  e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));
+  e.respondWith(fetch(e.request,{cache:'no-store'}).catch(()=>caches.match(e.request)));
 });
