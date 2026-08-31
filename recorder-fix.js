@@ -1,26 +1,46 @@
 (()=>{
-  if(!window.MediaRecorder || window.__teleprompterRecorderFix) return;
-  window.__teleprompterRecorderFix=true;
+  if(!window.MediaRecorder || window.__teleprompterRecorderFixV5) return;
+  window.__teleprompterRecorderFixV5=true;
 
-  const proto=MediaRecorder.prototype;
-  const nativeStart=proto.start;
-  const nativeRequestData=proto.requestData;
   const isiOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(!isiOS) return;
 
-  proto.start=function(timeslice){
-    if(isiOS){
-      // Safari iOS puede congelar la pista de vídeo si acumula toda la grabación
-      // en memoria. 5 s reduce presión sin trocear en exceso el MP4.
-      return nativeStart.call(this,5000);
+  // 1) Deja a iOS elegir la configuración de micrófono más estable.
+  try{
+    const md=navigator.mediaDevices;
+    if(md?.getUserMedia && !md.__teleprompterNativeAudio){
+      const nativeGUM=md.getUserMedia.bind(md);
+      md.getUserMedia=(constraints={})=>{
+        const c={...constraints};
+        if(c.audio) c.audio=true;
+        return nativeGUM(c);
+      };
+      md.__teleprompterNativeAudio=true;
     }
-    return nativeStart.call(this,timeslice);
+  }catch{}
+
+  // 2) En iPhone no forzamos MP4/H264/AAC ni bitrates.
+  // Safari elige el contenedor/códecs que mejor mantiene audio+vídeo juntos.
+  const NativeMR=window.MediaRecorder;
+  function SafariMediaRecorder(stream){
+    return new NativeMR(stream);
+  }
+  SafariMediaRecorder.prototype=NativeMR.prototype;
+  try{Object.setPrototypeOf(SafariMediaRecorder,NativeMR)}catch{}
+  SafariMediaRecorder.isTypeSupported=()=>false;
+  window.MediaRecorder=SafariMediaRecorder;
+
+  // 3) Vaciado periódico para evitar que Safari acumule toda la sesión y congele vídeo.
+  const nativeStart=NativeMR.prototype.start;
+  const nativeRequestData=NativeMR.prototype.requestData;
+  NativeMR.prototype.start=function(){
+    return nativeStart.call(this,4000);
   };
 
-  if(isiOS && nativeRequestData){
-    proto.requestData=function(){
-      // Evitamos fragmentos manuales al pausar; dejamos que el timeslice haga
-      // el vaciado periódico para mantener audio y vídeo sincronizados.
-      if(this.state==='recording' && /mp4/i.test(this.mimeType||'')) return;
+  if(nativeRequestData){
+    NativeMR.prototype.requestData=function(){
+      // No forzar fragmentos extra al pausar; el timeslice ya vacía el buffer.
+      if(this.state==='recording') return;
       return nativeRequestData.call(this);
     };
   }
